@@ -406,10 +406,11 @@ include APPLICATION_PATH . '/views/partials/report-zero-state.phtml';
 			showDropdowns: true,
 			alwaysShowCalendars: true,
 			// Some programmes run only one or two rounds a year, so three years
-			// shows enough of them.
+			// shows enough of them. Shipments are often created before their
+			// shipment date, so the range also covers the coming year: ending it
+			// today hid every shipment dated in the future.
 			startDate: moment().subtract(3, 'year'),
-			endDate: moment(),
-			maxDate: moment(),
+			endDate: moment().add(1, 'year'),
 			ranges: eptDateRanges()
 		}).on('apply.daterangepicker', function () {
 			$(this).trigger('change');
