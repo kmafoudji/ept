@@ -221,15 +221,15 @@
                     $('.send-report-btn-' + sid).addClass('btn-default');
                     $('.send-report-btn-' + sid).attr('disabled', true);
                     Toastify({
-                        text: "Report mail send to the participants",
-                        duration: 3000,
+                        text: "<?= $this->jsTranslate("Report emails added to the queue. A notification will show how many were queued; any not sent appear in Failed Emails."); ?>",
+                        duration: 6000,
                         style: {
                             background: "linear-gradient(to right, #00b09b, #96c93d)",
                         }
                     }).showToast();
                 } else {
                     Toastify({
-                        text: "Report mail already added to the queue",
+                        text: "<?= $this->jsTranslate("Report mail already added to the queue"); ?>",
                         duration: 3000,
                         style: {
                             background: "linear-gradient(to right, #f39c12, red)",

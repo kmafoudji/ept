@@ -36,6 +36,13 @@ class Application_Model_DbTable_TempMail extends Zend_Db_Table_Abstract
             // Validate message content - reject empty messages
             if (trim((string) $message) === '') {
                 Pt_Commons_LoggerUtility::logWarning('TempMail insert rejected: empty message body');
+                $this->recordRejectedMail(
+                    $to,
+                    $subject,
+                    'empty_body',
+                    'Not sent: the email body is empty. Check the mail template for this email in Configure > Mail Template.',
+                    $emailParticipantId
+                );
                 return false;
             }
 
@@ -79,9 +86,12 @@ class Application_Model_DbTable_TempMail extends Zend_Db_Table_Abstract
             if (empty($recips['to'])) {
                 if (!empty($recips['invalid'])) {
                     Pt_Commons_LoggerUtility::logWarning('TempMail insert rejected: no valid TO. Invalid: ' . implode(', ', $recips['invalid']));
+                    $reason = 'Not sent: no valid recipient address (' . implode(', ', $recips['invalid']) . '). Correct the email address of the participant or data manager.';
                 } else {
                     Pt_Commons_LoggerUtility::logWarning('TempMail insert rejected: no TO recipients provided');
+                    $reason = 'Not sent: no recipient address. Add an email address to the participant or data manager.';
                 }
+                $this->recordRejectedMail($to, $subject, 'invalid_recipient', $reason, $emailParticipantId);
                 return false;
             }
 
@@ -413,5 +423,31 @@ class Application_Model_DbTable_TempMail extends Zend_Db_Table_Abstract
         }
 
         echo json_encode($output);
+    }
+
+    /**
+     * Keep a visible trace of an email that was refused before queueing.
+     *
+     * Rejected emails used to exist only as a warning in the log, while the
+     * screen that triggered them reported success ("Report mail sent to the
+     * participants"). A 'skipped' row makes them show up in Configure > Failed
+     * Emails with the reason. It is never picked up for sending.
+     */
+    private function recordRejectedMail($to, $subject, string $failureType, string $reason, ?int $emailParticipantId = null): void
+    {
+        try {
+            $this->insert([
+                'to_email' => mb_substr(trim((string) $to), 0, 255),
+                'subject' => (string) $subject,
+                'message' => '',
+                'status' => 'skipped',
+                'failure_type' => $failureType,
+                'failure_reason' => $reason,
+                'email_participant_id' => $emailParticipantId,
+                'queued_on' => new Zend_Db_Expr('NOW()'),
+            ]);
+        } catch (Throwable $e) {
+            Pt_Commons_LoggerUtility::logWarning('Could not record rejected email: ' . $e->getMessage());
+        }
     }
 }

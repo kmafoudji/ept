@@ -4284,8 +4284,17 @@ class Application_Service_Shipments
         }
     }
 
-    public function fetchReportsMail($shipmentId, $conf)
+    /**
+     * Queue the "your report is ready" email for every reportable participant.
+     *
+     * $stats (optional, by reference) receives counts so the caller can tell
+     * the admin how many emails were really queued: ['queued' => n,
+     * 'not_sent' => n, 'missing_files' => n]. Emails refused by TempMail are
+     * listed in Configure > Failed Emails with the reason.
+     */
+    public function fetchReportsMail($shipmentId, $conf, ?array &$stats = null)
     {
+        $stats = ['queued' => 0, 'not_sent' => 0, 'missing_files' => 0];
         $domain = rtrim($conf->domain, '/');
         $dbAdapter = Zend_Db_Table_Abstract::getDefaultAdapter();
         $sQuery = $dbAdapter->select()->from(['s' => 'shipment'], ['SHIP_YEAR' => 'year(s.shipment_date)', 's.scheme_type', 's.shipment_date', 's.shipment_code', 's.response_deadline', 's.shipment_id', 's.corrective_action_file', 'status'])
@@ -4323,7 +4332,15 @@ class Application_Service_Shipments
                     $toEmail = $aRow['email'];
                     $cc = $newShipmentMailContent['mail_cc'];
                     $bcc = $newShipmentMailContent['mail_bcc'];
-                    $commonServices->insertTempMail($toEmail, $cc, $bcc, $subject, $message, $fromEmail, $fromFullName);
+                    $tempId = $commonServices->insertTempMail($toEmail, $cc, $bcc, $subject, $message, $fromEmail, $fromFullName);
+                    if ($tempId) {
+                        $stats['queued']++;
+                    } else {
+                        $stats['not_sent']++;
+                    }
+                } else {
+                    $stats['missing_files']++;
+                    Pt_Commons_LoggerUtility::logWarning('Report email not sent: report file missing for ' . $aRow['shipment_code'] . ' / ' . $aRow['unique_identifier']);
                 }
             }
         }
