@@ -139,6 +139,11 @@ if ($inConfirmStep) { $_SESSION['confirmForm'] = ''; } ?>
 					if ($message && !$isLoggedInAsAdmin) {
 						echo "<h4 style='color:red;text-align:center;'>{$this->translate->_($message)}</h4>";
 					}
+					if (!empty($this->adminCorrectedOn)) {
+						echo "<div class='alert alert-warning' style='text-align:center;'>"
+							. $this->escape(sprintf($this->translate->_('Your PT provider modified this response on %s. The values shown are the corrected ones; contact your PT provider for details.'), Pt_Commons_DateUtility::humanReadableDateFormat($this->adminCorrectedOn)))
+							. "</div>";
+					}
 					?>
 
 					<br>

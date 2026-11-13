@@ -60,6 +60,15 @@ class TbController extends Zend_Controller_Action
             $shipment['attributes'] = Pt_Commons_JsonUtility::safeDecode($shipment['attributes']);
             $this->view->instruments = $participantService->getTbInstruments($shipment['map_id']);
             $this->view->shipment = $shipment;
+            // Tell the lab when the PT provider changed its response after it was
+            // submitted (the change itself is in the audit log).
+            $spmRow = Zend_Db_Table_Abstract::getDefaultAdapter()->fetchRow(
+                'SELECT updated_on_admin, updated_on_user, created_on_user FROM shipment_participant_map WHERE map_id = ?',
+                [(int) ($shipment['map_id'] ?? 0)]
+            );
+            $lastLabSave = max((string) ($spmRow['updated_on_user'] ?? ''), (string) ($spmRow['created_on_user'] ?? ''));
+            $this->view->adminCorrectedOn = (!empty($spmRow['updated_on_admin']) && $spmRow['updated_on_admin'] > $lastLabSave)
+                ? $spmRow['updated_on_admin'] : null;
             $this->view->shipId = $sID;
             $this->view->participantId = $pID;
             $this->view->eID = $eID;

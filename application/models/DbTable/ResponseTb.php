@@ -6,6 +6,25 @@ class Application_Model_DbTable_ResponseTb extends Zend_Db_Table_Abstract
     protected $_primary = ['shipment_map_id', 'sample_id'];
     public const NOW = 'now()';
 
+    /**
+     * Current results of one participant's TB response, keyed by sample_id,
+     * with the sample label. Used to record admin corrections.
+     */
+    public function fetchResultsBySample(int $shipmentMapId): array
+    {
+        $db = $this->getAdapter();
+        $rows = $db->fetchAll(
+            $db->select()->from(['r' => $this->_name])
+                ->joinLeft(['ref' => 'reference_result_tb'], 'ref.sample_id = r.sample_id AND ref.shipment_id = (SELECT shipment_id FROM shipment_participant_map WHERE map_id = r.shipment_map_id)', ['sample_label'])
+                ->where('r.shipment_map_id = ?', $shipmentMapId)
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[$row['sample_id']] = $row;
+        }
+        return $out;
+    }
+
     public function updateResults($params)
     {
         $sampleIds = $params['sampleId'];

@@ -1908,7 +1908,13 @@ class Application_Service_Shipments
                 'response_status' => $responseStatus,
             ]);
 
-            if (!empty($authNameSpace->dm_id)) {
+            // An admin correction must be recorded as such even when the same
+            // browser also holds a participant session (checking dm_id first
+            // filed admin edits as the lab's own).
+            if (self::isAdminEdit($params)) {
+                $data['updated_by_admin'] = $adminAuthNameSpace->admin_id ?? null;
+                $data['updated_on_admin'] = new Zend_Db_Expr('now()');
+            } elseif (!empty($authNameSpace->dm_id)) {
                 $data['updated_by_user'] = $authNameSpace->dm_id ?? null;
                 $data['updated_on_user'] = new Zend_Db_Expr('now()');
             } elseif (!empty($adminAuthNameSpace->admin_id)) {
@@ -1965,7 +1971,12 @@ class Application_Service_Shipments
             }
 
             $tbResponseDb = new Application_Model_DbTable_ResponseTb();
+            // Keep what the lab reported before an admin correction overwrites it.
+            $beforeAdminEdit = self::isAdminEdit($params) ? $tbResponseDb->fetchResultsBySample((int) $params['smid']) : null;
             $tbResponseDb->updateResults($params);
+            if ($beforeAdminEdit !== null) {
+                $this->logTbAdminCorrection($params, $beforeAdminEdit, $tbResponseDb->fetchResultsBySample((int) $params['smid']));
+            }
 
             $this->saveAdminData($params);
 
@@ -1996,6 +2007,37 @@ class Application_Service_Shipments
                 'trace' => $e->getTraceAsString(),
             ]);
         }
+    }
+
+    /**
+     * Write an audit-log entry listing every result an admin changed in a TB
+     * response, with the lab's original value and the new one. The lab's
+     * answer is otherwise overwritten without a trace (ISO/IEC 17043 expects
+     * changes to participant results to be recorded).
+     */
+    private function logTbAdminCorrection(array $params, array $before, array $after): void
+    {
+        $fields = ['mtb_detected' => 'MTB', 'rif_resistance' => 'RIF', 'probe_a' => 'Probe A', 'probe_b' => 'Probe B',
+            'probe_c' => 'Probe C', 'probe_d' => 'Probe D', 'probe_e' => 'Probe E', 'test_date' => 'Test date',
+            'instrument_serial_no' => 'Instrument', 'error_code' => 'Error code'];
+        $changes = [];
+        foreach ($after as $sampleId => $row) {
+            foreach ($fields as $col => $label) {
+                $old = isset($before[$sampleId][$col]) ? (string) $before[$sampleId][$col] : '';
+                $new = isset($row[$col]) ? (string) $row[$col] : '';
+                if ($old !== $new) {
+                    $changes[] = 'sample ' . ($row['sample_label'] ?? $sampleId) . ' ' . $label . ': "' . $old . '" -> "' . $new . '"';
+                }
+            }
+        }
+        if (empty($changes)) {
+            return;
+        }
+        $auditDb = new Application_Model_DbTable_AuditLog();
+        $auditDb->addNewAuditLog(
+            'Admin corrected TB response (shipment map ' . (int) $params['smid'] . '): ' . implode('; ', $changes),
+            'participant-response'
+        );
     }
 
     public function updateGenericTestResults($params)
