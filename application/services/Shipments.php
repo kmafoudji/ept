@@ -6,6 +6,9 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class Application_Service_Shipments
 {
+    /** Lifetime of the report links sent by email (30 days). */
+    private const REPORT_LINK_TTL_SECONDS = 2592000;
+
     protected $tempUploadDirectory;
     protected $translator;
     public function __construct()
@@ -4320,8 +4323,14 @@ class Application_Service_Shipments
                 if (file_exists($invididualFilePath) && file_exists($summaryFilePath)) {
                     $commonServices = new Application_Service_Common();
                     $newShipmentMailContent = $commonServices->getEmailTemplate('send_participant_report_mail');
-                    $indLink = '<a href=' . $domain . DIRECTORY_SEPARATOR . 'd' . DIRECTORY_SEPARATOR . base64_encode($invididualFilePath) . '>' . $conf->domain . DIRECTORY_SEPARATOR . 'd' . DIRECTORY_SEPARATOR . base64_encode($invididualFilePath) . '</a>';
-                    $sumLink = '<a href=' . $domain . DIRECTORY_SEPARATOR . 'd' . DIRECTORY_SEPARATOR . base64_encode($summaryFilePath) . '>' . $conf->domain . DIRECTORY_SEPARATOR . 'd' . DIRECTORY_SEPARATOR . base64_encode($summaryFilePath) . '</a>';
+                    // Signed, expiring links that require a login. The legacy /d/
+                    // route served any report to anyone holding the URL, and the
+                    // URL was just the base64 of a predictable file path
+                    // (shipment code + participant code), so it could be guessed.
+                    $indUrl = $domain . Pt_Commons_SignedDownload::url($invididualFilePath, self::REPORT_LINK_TTL_SECONDS, true);
+                    $sumUrl = $domain . Pt_Commons_SignedDownload::url($summaryFilePath, self::REPORT_LINK_TTL_SECONDS, true);
+                    $indLink = '<a href="' . htmlspecialchars($indUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(basename($invididualFilePath), ENT_QUOTES, 'UTF-8') . '</a>';
+                    $sumLink = '<a href="' . htmlspecialchars($sumUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(basename($summaryFilePath), ENT_QUOTES, 'UTF-8') . '</a>';
                     $search = ['##NAME##', '##SHIPCODE##', '##SHIPTYPE##', '##IND_REPORT_LINK##', '##SUM_REPORT_LINK##'];
                     $replace = [$aRow['participantName'], $aRow['shipment_code'], $aRow['scheme_name'], $indLink, $sumLink];
                     $content = $newShipmentMailContent['mail_content'];
