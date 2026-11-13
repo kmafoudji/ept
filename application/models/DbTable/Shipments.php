@@ -78,43 +78,12 @@ class Application_Model_DbTable_Shipments extends Zend_Db_Table_Abstract
 
     public function updateShipmentStatusByDistribution($distributionId, $status)
     {
-        $commonServices = new Application_Service_Common();
-        // Never pick up a cancelled shipment here — this path mails participants
-        // about a "new shipment", and a cancelled one is soft-deleted.
-        $shipmentRow = $this->fetchRow(['distribution_id = ?' => $distributionId, 'cancelled_at IS NULL']);
-        /* New shipment mail alert start */
-        $notParticipatedMailContent = $commonServices->getEmailTemplate('new_shipment');
-        // Every shipment under this survey may be cancelled, in which case there is
-        // nobody to mail — skip straight to the status update.
-        $subResult = [];
-        if (!empty($shipmentRow['shipment_id'])) {
-            $subQuery = $this->select()
-                ->from(['s' => 'shipment'], ['shipment_code', 'scheme_type'])
-                ->join(['spm' => 'shipment_participant_map'], 'spm.shipment_id=s.shipment_id', ['map_id', 'participant_id'])
-                ->join(['pmm' => 'participant_manager_map'], 'pmm.participant_id=spm.participant_id', ['dm_id'])
-                ->join(['p' => 'participant'], 'p.participant_id=pmm.participant_id', ['participantName' => new Zend_Db_Expr(Application_Model_DbTable_Participants::participantNameGroupConcatExpr('p'))])
-                ->join(['dm' => 'data_manager'], 'pmm.dm_id=dm.dm_id', ['primary_email'])
-                ->where('s.shipment_id=?', $shipmentRow['shipment_id'])
-                ->group('dm.dm_id')->setIntegrityCheck(false);
-            $subResult = $this->fetchAll($subQuery);
+        // Mail the data managers of every live shipment of this survey. A
+        // cancelled shipment is soft-deleted, so its labs are not mailed.
+        $liveShipments = $this->fetchAll(['distribution_id = ?' => $distributionId, 'cancelled_at IS NULL']);
+        foreach ($liveShipments as $liveShipment) {
+            $this->queueNewShipmentMails((int) $liveShipment['shipment_id']);
         }
-        foreach ($subResult as $dm) {
-            $search = ['##NAME##', '##SHIPCODE##', '##SHIPTYPE##', '##SURVEYCODE##', '##SURVEYDATE##',];
-            $replace = [$dm['participantName'], $dm['shipment_code'], $dm['scheme_type'], '', ''];
-            if (isset($notParticipatedMailContent['mail_content']) && !empty($notParticipatedMailContent['mail_content'])) {
-                $content = $notParticipatedMailContent['mail_content'];
-                $message = str_replace($search, $replace, $content);
-                // $subject = $notParticipatedMailContent['mail_subject'];
-                $subject = str_replace($search, $replace, $notParticipatedMailContent['mail_subject']);
-                $fromEmail = $notParticipatedMailContent['mail_from'];
-                $fromFullName = $notParticipatedMailContent['from_name'];
-                $toEmail = $dm['primary_email'];
-                $cc = $notParticipatedMailContent['mail_cc'];
-                $bcc = $notParticipatedMailContent['mail_bcc'];
-                $commonServices->insertTempMail($toEmail, $cc, $bcc, $subject, $message, $fromEmail, $fromFullName);
-            }
-        }
-        /* New shipment mail alert end */
         if (isset($status) && $status != null && $status != '') {
             // Scoped to live shipments: without this, shipping a survey would flip
             // response_switch back to 'on' for its cancelled shipments and un-lock them.
@@ -122,6 +91,64 @@ class Application_Model_DbTable_Shipments extends Zend_Db_Table_Abstract
         } else {
             return 0;
         }
+    }
+
+    /**
+     * Queues the "new_shipment" email for the data managers of a shipment.
+     *
+     * Called when a PT survey is shipped (all labs of the shipment), and when
+     * labs are enrolled in a shipment that is already shipped (only those labs).
+     * Returns the number of emails queued.
+     */
+    public function queueNewShipmentMails(int $shipmentId, ?array $participantIds = null): int
+    {
+        if ($participantIds !== null) {
+            $participantIds = array_values(array_filter(array_map('intval', $participantIds)));
+            if (empty($participantIds)) {
+                return 0;
+            }
+        }
+        $commonServices = new Application_Service_Common();
+        $template = $commonServices->getEmailTemplate('new_shipment');
+        if (empty($template['mail_content'])) {
+            return 0;
+        }
+        $query = $this->select()->setIntegrityCheck(false)
+            ->from(['s' => 'shipment'], ['shipment_code'])
+            ->join(['d' => 'distributions'], 'd.distribution_id = s.distribution_id', ['distribution_code', 'distribution_date'])
+            ->joinLeft(['sl' => 'scheme_list'], 'sl.scheme_id = s.scheme_type', ['scheme_name' => new Zend_Db_Expr('COALESCE(sl.scheme_name, s.scheme_type)')])
+            ->join(['spm' => 'shipment_participant_map'], 'spm.shipment_id = s.shipment_id', [])
+            ->join(['pmm' => 'participant_manager_map'], 'pmm.participant_id = spm.participant_id', [])
+            ->join(['p' => 'participant'], 'p.participant_id = pmm.participant_id', ['participantName' => new Zend_Db_Expr(Application_Model_DbTable_Participants::participantNameGroupConcatExpr('p'))])
+            ->join(['dm' => 'data_manager'], 'pmm.dm_id = dm.dm_id', ['primary_email'])
+            ->where('s.shipment_id = ?', $shipmentId)
+            ->where('s.cancelled_at IS NULL')
+            ->group('dm.dm_id');
+        if ($participantIds !== null) {
+            $query->where('spm.participant_id IN (?)', $participantIds);
+        }
+        $queued = 0;
+        foreach ($this->fetchAll($query) as $dm) {
+            if (empty($dm['primary_email'])) {
+                continue;
+            }
+            $surveyDate = !empty($dm['distribution_date'])
+                ? Pt_Commons_DateUtility::humanReadableDateFormat($dm['distribution_date'])
+                : '';
+            $search = ['##NAME##', '##SHIPCODE##', '##SHIPTYPE##', '##SURVEYCODE##', '##SURVEYDATE##'];
+            $replace = [$dm['participantName'], $dm['shipment_code'], $dm['scheme_name'], $dm['distribution_code'], $surveyDate];
+            $commonServices->insertTempMail(
+                $dm['primary_email'],
+                $template['mail_cc'] ?? null,
+                $template['mail_bcc'] ?? null,
+                str_replace($search, $replace, (string) $template['mail_subject']),
+                str_replace($search, $replace, (string) $template['mail_content']),
+                $template['mail_from'] ?? null,
+                $template['from_name'] ?? null
+            );
+            $queued++;
+        }
+        return $queued;
     }
 
     public function getPendingShipmentsByDistribution($distributionId)

@@ -96,6 +96,10 @@ class Application_Model_DbTable_ShipmentParticipantMap extends Zend_Db_Table_Abs
             }
 
             $shipmentDb = new Application_Model_DbTable_Shipments();
+            $previousStatus = (string) $shipmentDb->getAdapter()->fetchOne(
+                $shipmentDb->getAdapter()->select()->from('shipment', ['status'])->where('shipment_id = ?', $params['shipmentId'])
+            );
+            $newlyEnrolled = array_values(array_diff($params['selectedForEnrollment'], array_keys($existingMap)));
             $shipmentDb->updateShipmentStatus($params['shipmentId'], 'ready');
 
             $shipmentRow = $shipmentDb->fetchRow($shipmentDb->getAdapter()->quoteInto('shipment_id = ?', $params['shipmentId']));
@@ -106,31 +110,13 @@ class Application_Model_DbTable_ShipmentParticipantMap extends Zend_Db_Table_Abs
                 $distroService = new Application_Service_Distribution();
                 $distroService->updateDistributionStatus($shipmentRow['distribution_id'], 'configured');
             }
-            /* New shipment mail alert start */
-            $notParticipatedMailContent = $commonServices->getEmailTemplate('new_shipment');
-            $subQuery = $this->select()
-                ->from(['s' => 'shipment'], ['shipment_code', 'scheme_type'])
-                ->join(['spm' => 'shipment_participant_map'], 'spm.shipment_id=s.shipment_id', ['map_id'])
-                ->join(['pmm' => 'participant_manager_map'], 'pmm.participant_id=spm.participant_id', ['dm_id'])
-                ->join(['p' => 'participant'], 'p.participant_id=pmm.participant_id', ['participantName' => new Zend_Db_Expr(Application_Model_DbTable_Participants::participantNameGroupConcatExpr('p'))])
-                ->join(['dm' => 'data_manager'], 'pmm.dm_id=dm.dm_id', ['primary_email'])
-                ->where('s.shipment_id=?', $shipmentRow['shipment_id'])
-                ->group('dm.dm_id')->setIntegrityCheck(false);
-            $subResult = $this->fetchAll($subQuery);
-            foreach ($subResult as $dm) {
-                $search = ['##NAME##', '##SHIPCODE##', '##SHIPTYPE##', '##SURVEYCODE##', '##SURVEYDATE##',];
-                $replace = [$dm['participantName'], $dm['shipment_code'], $dm['scheme_type'], '', ''];
-                $content = $notParticipatedMailContent['mail_content'];
-                $message = str_replace($search, $replace, $content);
-                $subject = $notParticipatedMailContent['mail_subject'];
-                $fromEmail = $notParticipatedMailContent['mail_from'];
-                $fromFullName = $notParticipatedMailContent['from_name'];
-                $toEmail = $dm['primary_email'];
-                $cc = $notParticipatedMailContent['mail_cc'];
-                $bcc = $notParticipatedMailContent['mail_bcc'];
-                $commonServices->insertTempMail($toEmail, $cc, $bcc, $subject, $message, $fromEmail, $fromFullName);
+            // The "new shipment" email is sent when the PT survey is shipped
+            // (Application_Model_DbTable_Shipments::updateShipmentStatusByDistribution).
+            // Enrolling labs before that must not mail them. Labs added to a
+            // shipment that is already shipped are mailed now, and only them.
+            if ($previousStatus === 'shipped' && !empty($newlyEnrolled)) {
+                $shipmentDb->queueNewShipmentMails((int) $params['shipmentId'], $newlyEnrolled);
             }
-            /* New shipment mail alert end */
             $this->getAdapter()->commit();
 
             $participantCount = is_array($params['selectedForEnrollment']) ? count($params['selectedForEnrollment']) : 0;
