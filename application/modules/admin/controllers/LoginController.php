@@ -15,10 +15,17 @@ class Admin_LoginController extends Zend_Controller_Action
         $request = $this->getRequest();
         if ($request->isPost()) {
             $params = $request->getPost();
-            if (
-                !empty($params['website_url']) ||
-                !Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'adminLoginTokens')
-            ) {
+            // Honeypot filled in: a bot. Redirect without a word.
+            if (!empty($params['website_url'])) {
+                $this->redirect('/admin');
+                return;
+            }
+            // Form token too old (over an hour) or already used (double submit,
+            // back button). Say so: a silent redirect looks like a failed login.
+            if (!Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'adminLoginTokens')) {
+                $formAlert = new Zend_Session_Namespace('alertSpace');
+                $formAlert->message = 'This form has expired. Please try again.';
+                $formAlert->status = 'failure';
                 $this->redirect('/admin');
                 return;
             }

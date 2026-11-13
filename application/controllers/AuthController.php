@@ -72,12 +72,17 @@ class AuthController extends Zend_Controller_Action
         try {
             $params = $request->getPost();
 
-            // Honeypot + single-use CSRF token. Silently redirect on failure so
-            // bots can't tell the difference from a captcha miss.
-            if (
-                !empty($params['website_url']) ||
-                !Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'authLoginTokens')
-            ) {
+            // Honeypot filled in: a bot. Redirect without a word.
+            if (!empty($params['website_url'])) {
+                $this->redirect($this->loginUri);
+                return;
+            }
+            // Form token too old (over an hour) or already used (double submit,
+            // back button). Say so: a silent redirect looks like a failed login.
+            if (!Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'authLoginTokens')) {
+                $formAlert = new Zend_Session_Namespace('alertSpace');
+                $formAlert->message = 'This form has expired. Please try again.';
+                $formAlert->status = 'failure';
                 $this->redirect($this->loginUri);
                 return;
             }
@@ -386,10 +391,17 @@ class AuthController extends Zend_Controller_Action
         }
         if ($request->isPost()) {
             $params = $request->getPost();
-            if (
-                !empty($params['website_url']) ||
-                !Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'authResetPwdTokens')
-            ) {
+            // Honeypot filled in: a bot. Redirect without a word.
+            if (!empty($params['website_url'])) {
+                $this->redirect('/auth/reset-password');
+                return;
+            }
+            // Form token too old (over an hour) or already used (double submit,
+            // back button). Say so: a silent redirect looks like a failed login.
+            if (!Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'authResetPwdTokens')) {
+                $formAlert = new Zend_Session_Namespace('alertSpace');
+                $formAlert->message = 'This form has expired. Please try again.';
+                $formAlert->status = 'failure';
                 $this->redirect('/auth/reset-password');
                 return;
             }
@@ -428,10 +440,17 @@ class AuthController extends Zend_Controller_Action
         $verifiedDmId = (int) $resolved['dm_id'];
         if ($request->isPost()) {
             $params = $request->getPost();
-            if (
-                !empty($params['website_url']) ||
-                !Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'authNewPwdTokens')
-            ) {
+            // Honeypot filled in: a bot. Redirect without a word.
+            if (!empty($params['website_url'])) {
+                $this->redirect($request->getRequestUri());
+                return;
+            }
+            // Form token too old (over an hour) or already used (double submit,
+            // back button). Say so: a silent redirect looks like a failed login.
+            if (!Application_Service_Common::consumeFormToken($params['form_token'] ?? null, 'authNewPwdTokens')) {
+                $formAlert = new Zend_Session_Namespace('alertSpace');
+                $formAlert->message = 'This form has expired. Please try again.';
+                $formAlert->status = 'failure';
                 $this->redirect($request->getRequestUri());
                 return;
             }
