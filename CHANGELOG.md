@@ -17,6 +17,59 @@ Releases are numbered `<upstream>-<revision>`, for example `7.7.0-1`:
 Database changes in this distribution go into `sql/init.sql` (fresh installs)
 or are made without schema changes, never into a new migration number.
 
+## [7.7.0-2] - 2026-11-14
+
+Based on deforay/ept `ae87ce487` (7.7.0). Fixes found by repeating the full
+TB round on a fresh install of 7.7.0-1.
+
+### Fixed
+
+- **"New shipment" email sent twice.** Each data manager got one email when
+  labs were enrolled (subject left as `##SHIPCODE## (##SHIPTYPE##)`) and a
+  second one when the PT survey was shipped. Both had an empty survey code and
+  date and showed the scheme code (`tb`) instead of its name. The email is now
+  sent once, when the survey is shipped, with every field filled. Labs added
+  to a shipment that is already shipped get it when they are enrolled. A
+  survey with several shipments now mails the labs of every shipment, not only
+  the first.
+- **Shipments Report hid shipments dated in the future.** The default date
+  range ended today. It now runs from three years ago to one year ahead.
+- **Login and password forms refused without a word.** An expired (over an
+  hour) or already used form sent the user back to the form with no message.
+  The participant and admin logins, *Forgot password* and the new-password
+  page now say "This form has expired. Please try again." The *Forgot
+  password* and new-password pages also showed no message at all (wrong
+  captcha, for example); they now do.
+- **JavaScript errors:** opening a dialog on a page with a date picker
+  (*Participants > Add > Create Data Manager*) threw an error in
+  `daterangepicker.js`; *Get New Image* under the captcha threw an error in
+  jQuery `.load()`.
+
+### Verified in the 7.7.0-1 retest
+
+Fresh install with no manual step, cron jobs, evaluation, admin correction
+with audit entry and notice to the lab, re-evaluation, reports (header row,
+contact block, Ct chart), finalization, report emails with signed links that
+require login, and the real count in the notification.
+
+### Known issues (not fixed in this release)
+
+- TB has no documentation score: the score is computed on the samples only,
+  out of 100, so *Documentation Score* always shows 0.00. This is how the TB
+  evaluation works, not a calculation error.
+- TB summary report: the *Contact Information* block can split across two
+  pages.
+- *Evaluate > View* sometimes stays on "Please wait"; reload the page.
+- An admin correction still replaces the lab's stored values; the original
+  values are kept only in the audit log.
+- Confirmations and validation messages use browser pop-ups; the *Email*
+  button of the data manager list changes the login email.
+- Default report texts (header, CDC contacts, XTPT programme text) must be
+  replaced in *Configure > PDF Report Settings* and the scheme configuration.
+- Not tested: schemes other than TB molecular, multi-lab rounds, bulk import,
+  PTCC, reminders and deadline extension, corrective actions, certificates,
+  upgrades of an existing installation.
+
 ## [7.7.0-1] - 2026-11-13
 
 Based on deforay/ept `ae87ce487` (7.7.0, 2026-11-06). Found while testing a

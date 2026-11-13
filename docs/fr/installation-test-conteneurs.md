@@ -24,7 +24,7 @@ réseau des conteneurs Podman. Utilisez `podman-compose` sans sudo.
 
 ```bash
 git clone https://github.com/<compte>/ept.git && cd ept
-git checkout v7.7.0-1
+git checkout v7.7.0-2      # la dernière version publiée (voir CHANGELOG.md)
 ```
 
 ## 2. Configurer
@@ -120,6 +120,19 @@ sudo ufw allow from 192.168.1.0/24 to any port 8025 proto tcp comment 'Mailpit'
 | `podman-compose down` bloque, conteneur en « Stopping » | AppArmor refuse les signaux d'arrêt de Podman | `PID=$(podman inspect -f '{{.State.Pid}}' <conteneur>)` puis `podman unshare kill -9 $PID` (ou `sudo kill -9 $PID`), puis `podman rm -f --depend <conteneur>` |
 | `ept-db` reste « unhealthy » et `ept` ne démarre pas | Contrôle de santé ancien, avant `7.7.0-1` | Mettre à jour, ou `podman start ept_ept_1` |
 | Pages inaccessibles depuis le réseau | Pare-feu `ufw` | Étape 5 |
+
+## Passer à une nouvelle version
+
+Les données de la base sont conservées.
+
+```bash
+git fetch --tags
+git checkout v7.7.0-2
+podman-compose --profile mailtrap up --build -d
+```
+
+Le pied de page de l'application affiche la version en service. Si le
+conteneur reste bloqué à l'arrêt, voir les problèmes connus ci-dessous.
 
 ## Réinitialiser la base de test
 

@@ -6,7 +6,7 @@ const APP_VERSION = '7.7.0';
 // to the upstream schema version (deforay/ept) so upstream migrations keep
 // applying; the "-N" revision counts the fixes released on top of it.
 // See CHANGELOG.md.
-const DISTRIBUTION_VERSION = '7.7.0-1';
+const DISTRIBUTION_VERSION = '7.7.0-2';
 
 // PHP2Shell (CVE-2026-109618, CVE-2026-109619) is fixed in 8.4.27 and 8.5.12. Composer's
 // platform check rejects anything below 8.4.27 but checks only that lowest bound, so the
