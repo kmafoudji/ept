@@ -16,6 +16,9 @@ services:
       # database is always named ept.
       - DB_NAME=ept
       - APP_DOMAIN=${APP_DOMAIN:-http://localhost/}
+      # Test/training instances only, see .env.example
+      - EPT_MAIL_TRAP_DSN=${EPT_MAIL_TRAP_DSN:-}
+      - EPT_INSECURE_HTTP=${EPT_INSECURE_HTTP:-0}
     volumes:
       - uploads:/var/www/ept/public/uploads
       - logs:/var/www/ept/logs
@@ -42,7 +45,9 @@ services:
       --max-connect-errors=10000
       --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      # TCP, not the socket: "-h localhost" looks for a socket path that the
+      # mysql:8.0 image does not always use, and the check then never passes.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--protocol=tcp"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -64,6 +69,17 @@ services:
     restart: unless-stopped
     profiles:
       - ssl
+
+  # Mail catcher for test and training instances: every email lands in a web
+  # inbox at http://<host>:8025 instead of real mailboxes. Start it with
+  # --profile mailtrap and set EPT_MAIL_TRAP_DSN=smtp://mailpit:1025 in .env.
+  mailpit:
+    image: docker.io/axllent/mailpit:latest
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
+    restart: unless-stopped
+    profiles:
+      - mailtrap
 
   certbot:
     image: certbot/certbot
