@@ -1601,6 +1601,10 @@
 
 (function ($) {
     function attachChangePulse(picker) {
+        // jQuery also runs "show.daterangepicker" handlers for a plain "show"
+        // event (namespaces only narrow .off/.trigger), e.g. a Bootstrap modal
+        // opening. Then there is no picker: ignore it.
+        if (!picker || !picker.container) return;
         const $label = picker.container.find('.drp-selected');
         if (!$label.length || $label.data('drp-observed')) return;
 
