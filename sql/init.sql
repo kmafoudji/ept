@@ -98,7 +98,9 @@ CREATE TABLE `certificate_templates` (
   `ct_id` int NOT NULL,
   `scheme_type` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `participation_certificate` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `p_detected_fields` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT 'JSON array of detected PDF form fields for participation certificate',
   `excellence_certificate` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `e_detected_fields` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT 'JSON array of detected PDF form fields for excellence certificate',
   `created_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `updated_on` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -447,7 +449,10 @@ CREATE TABLE `data_manager` (
   `dm_id` int NOT NULL,
   `participant_ulid` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
   `primary_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `primary_email_status` enum('unknown','valid','invalid_syntax','invalid_domain','hard_bounce') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'unknown',
   `password` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
+  `password_reset_token` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `password_reset_expires_at` datetime DEFAULT NULL,
   `institute` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `data_manager_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'manager',
   `ptcc` enum('yes','no') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'no',
@@ -455,6 +460,10 @@ CREATE TABLE `data_manager` (
   `last_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `phone` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `secondary_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `secondary_email_status` enum('unknown','valid','invalid_syntax','invalid_domain','hard_bounce') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'unknown',
+  `email_status_checked_at` datetime DEFAULT NULL,
+  `last_bounce_at` datetime DEFAULT NULL,
+  `last_bounce_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `country_id` int DEFAULT NULL,
   `UserFld1` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `UserFld2` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
@@ -749,7 +758,12 @@ CREATE TABLE `participant` (
   `phone` varchar(45) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `contact_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `email_status` enum('unknown','valid','invalid_syntax','invalid_domain','hard_bounce') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'unknown',
   `additional_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `additional_email_status` enum('unknown','valid','invalid_syntax','invalid_domain','hard_bounce') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'unknown',
+  `email_status_checked_at` datetime DEFAULT NULL,
+  `last_bounce_at` datetime DEFAULT NULL,
+  `last_bounce_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `affiliation` varchar(45) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `network_tier` int DEFAULT NULL,
   `created_on` datetime DEFAULT NULL,
@@ -1029,6 +1043,7 @@ CREATE TABLE `reference_dts_eia` (
   `shipment_id` int NOT NULL,
   `sample_id` int NOT NULL,
   `eia` int NOT NULL,
+  `test_date` date DEFAULT NULL,
   `lot` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `exp_date` date DEFAULT NULL,
   `od` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
@@ -1046,6 +1061,7 @@ CREATE TABLE `reference_dts_geenius` (
   `id` int NOT NULL,
   `shipment_id` int DEFAULT NULL,
   `sample_id` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `test_date` date DEFAULT NULL,
   `lot_no` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `expiry_date` date DEFAULT NULL,
   `result` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL
@@ -1062,6 +1078,7 @@ CREATE TABLE `reference_dts_rapid_hiv` (
   `shipment_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `sample_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `testkit` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `test_date` date DEFAULT NULL,
   `lot_no` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `expiry_date` date NOT NULL,
   `result` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
@@ -1078,6 +1095,7 @@ CREATE TABLE `reference_dts_wb` (
   `shipment_id` int NOT NULL,
   `sample_id` int NOT NULL,
   `wb` int NOT NULL,
+  `test_date` date DEFAULT NULL,
   `lot` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `exp_date` date DEFAULT NULL,
   `160` int DEFAULT NULL,
@@ -1205,6 +1223,7 @@ CREATE TABLE `reference_result_dts` (
   `dts_rtri_reference_result` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `control` int DEFAULT NULL,
   `mandatory` int NOT NULL DEFAULT '0',
+  `is_sample_diluted` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `sample_score` decimal(10,4) NOT NULL DEFAULT '0.0000'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Referance Result for DTS Shipment';
 
@@ -2084,7 +2103,8 @@ CREATE TABLE `r_participant_feedback_form` (
   `rpff_id` int NOT NULL,
   `shipment_id` int NOT NULL,
   `scheme_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `form_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci
+  `form_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
+  `form_show_to` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -2608,7 +2628,8 @@ CREATE TABLE `scheme_testkit_map` (
   `testkit_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `testkit_1` int NOT NULL DEFAULT '0',
   `testkit_2` int NOT NULL DEFAULT '0',
-  `testkit_3` int NOT NULL DEFAULT '0'
+  `testkit_3` int NOT NULL DEFAULT '0',
+  `shipment_id` int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -2741,6 +2762,7 @@ CREATE TABLE `system_admin` (
   `phone` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `force_password_reset` int DEFAULT NULL,
   `scheme` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
+  `language` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'en_US',
   `status` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'inactive',
   `privileges` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `created_on` datetime DEFAULT NULL,
@@ -2950,7 +2972,9 @@ ALTER TABLE `custom_page_content`
 --
 ALTER TABLE `data_manager`
   ADD PRIMARY KEY (`dm_id`),
-  ADD UNIQUE KEY `primary_email` (`primary_email`);
+  ADD UNIQUE KEY `primary_email` (`primary_email`),
+  ADD UNIQUE KEY `uniq_data_manager_pw_reset_token` (`password_reset_token`),
+  ADD KEY `idx_dm_email_checked_at` (`email_status_checked_at`);
 
 --
 -- Indexes for table `distributions`
@@ -3012,7 +3036,8 @@ ALTER TABLE `notify`
 --
 ALTER TABLE `participant`
   ADD PRIMARY KEY (`participant_id`),
-  ADD UNIQUE KEY `unique_identifier` (`unique_identifier`);
+  ADD UNIQUE KEY `unique_identifier` (`unique_identifier`),
+  ADD KEY `idx_participant_email_checked_at` (`email_status_checked_at`);
 
 --
 -- Indexes for table `participants_not_uploaded`
