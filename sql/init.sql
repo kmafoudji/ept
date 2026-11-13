@@ -702,6 +702,21 @@ CREATE TABLE `mail_template` (
   `mail_footer` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `mail_template`
+--
+-- Default texts so a fresh install does not queue empty emails. Sender
+-- fields are NULL: TempMail falls back to the configured From address.
+-- Edit them in Configure > Mail Template.
+--
+
+INSERT INTO `mail_template` (`mail_temp_id`, `mail_purpose`, `from_name`, `mail_from`, `mail_cc`, `mail_bcc`, `mail_subject`, `mail_content`, `mail_footer`) VALUES
+(1, 'new_shipment', NULL, NULL, NULL, NULL, 'New PT shipment: ##SHIPCODE## (##SHIPTYPE##)', '<p>Dear ##NAME##,</p><p>A new proficiency testing shipment is available for your laboratory.</p><ul><li>Shipment: <strong>##SHIPCODE##</strong> (##SHIPTYPE##)</li><li>PT survey: ##SURVEYCODE## of ##SURVEYDATE##</li></ul><p>Log in to ePT to see the panel details and submit your results before the deadline.</p>', ''),
+(2, 'not_participated', NULL, NULL, NULL, NULL, 'Reminder: results for ##SHIPCODE## not yet submitted', '<p>Dear ##NAME##,</p><p>We have not yet received your results for shipment <strong>##SHIPCODE##</strong> (##SHIPTYPE##), PT survey ##SURVEYCODE## of ##SURVEYDATE##.</p><p>Log in to ePT and submit them before the deadline. Check that each response shows as submitted, not saved as a draft.</p>', ''),
+(3, 'not_participant_report_mail', NULL, NULL, NULL, NULL, 'PT report for ##SHIPCODE##: no response received', '<p>Dear ##NAME##,</p><p>The reports for shipment <strong>##SHIPCODE##</strong> (##SHIPTYPE##), PT survey ##SURVEYCODE## of ##SURVEYDATE##, have been released.</p><p>No response was received from your laboratory for this shipment. Contact your PT provider if you believe this is an error.</p>', ''),
+(4, 'send_participant_report_mail', NULL, NULL, NULL, NULL, 'PT report available: ##SHIPCODE## (##SHIPTYPE##)', '<p>Dear ##NAME##,</p><p>The reports for shipment <strong>##SHIPCODE##</strong> (##SHIPTYPE##) are available.</p><p>Individual report: ##IND_REPORT_LINK##</p><p>Summary report: ##SUM_REPORT_LINK##</p><p>You can also download them from ePT under View PT Result.</p>', ''),
+(5, 'announcement', NULL, NULL, NULL, NULL, 'PT announcement', '<p>Dear participant,</p><p>Please read the announcement below.</p>', '');
+
 -- --------------------------------------------------------
 
 --
