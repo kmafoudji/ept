@@ -567,7 +567,6 @@ $resolvedHelpSlug = $helpSlugMap[$activeMenu] ?? '';
 
         function getCaptcha(captchaDivId) {
             $("#" + captchaDivId).attr("src", '/captcha/' + Math.random());
-            $("#" + captchaDivId).load();
         }
 
         function validatePassword(passwordField, confirmField = null) {

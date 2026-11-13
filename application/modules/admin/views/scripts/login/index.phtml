@@ -262,7 +262,6 @@ if ($alertStatus === 'success') {
 
 	function getCaptcha(captchaDivId) {
 		$("#" + captchaDivId).attr("src", '/captcha/' + Math.random());
-		$("#" + captchaDivId).load();
 	}
 </script>
 <img src="/images/loading.gif" style="display:none;" alt="" />
