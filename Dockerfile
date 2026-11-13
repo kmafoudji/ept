@@ -69,8 +69,14 @@ RUN mkdir -p application/cache logs downloads backups public/temporary public/up
 RUN chown -R www-data:www-data /var/www/ept \
     && chmod -R 775 application/cache logs downloads backups public/temporary public/uploads
 
-# Cron setup (runs crunz scheduler every minute)
-RUN echo '* * * * * cd /var/www/ept && ./cron.sh >> /var/log/cron.log 2>&1' \
+# Cron setup (runs crunz scheduler every minute).
+# cron starts jobs with PATH=/usr/bin:/bin, but this image's PHP is in
+# /usr/local/bin, so PATH is set explicitly. The log goes to logs/ because
+# www-data cannot create files in /var/log, and a failed redirection there
+# stopped cron.sh before it ran.
+RUN printf '%s\n' \
+      'PATH=/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin' \
+      '* * * * * cd /var/www/ept && ./cron.sh >> /var/www/ept/logs/cron.log 2>&1' \
     | crontab -u www-data -
 
 COPY docker/entrypoint.sh /entrypoint.sh
