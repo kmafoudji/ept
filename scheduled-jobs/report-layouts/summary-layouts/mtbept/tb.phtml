@@ -650,7 +650,9 @@ if (!empty($resultArray['shipment']) && $resultArray['shipment'] != "") {
                             </tr>
                         </table>', true, false, true, false, '');
 
-    $address = Pt_Commons_SchemeConfig::get('tb.contactInfo');
+    // Stored HTML-escaped (config.ini default, scheme config editor), as
+        // vl.contentForIndividualVlReports is; decode it or the PDF shows raw tags.
+        $address = htmlspecialchars_decode((string) Pt_Commons_SchemeConfig::get('tb.contactInfo'));
     if (isset($address) && !empty(trim($address)) && !empty(trim(strip_tags($address)))) {
         $pdf->writeHTML('<table style="width:100%" border="1"><tr><td style="width:100%;">' . $address . '</td></tr></table>', true, false, true, false, '');
     }
