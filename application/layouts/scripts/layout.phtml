@@ -439,7 +439,7 @@ $resolvedHelpSlug = $helpSlugMap[$activeMenu] ?? '';
 
         <footer class="main-footer">
             <div class="pull-right hidden-xs">
-                <span>ver. <?php echo APP_VERSION; ?></span>
+                <span>ver. <?php echo DISTRIBUTION_VERSION; ?></span>
                 <?php $commitSha = $this->getCommitSha();
                 if ($commitSha) { ?>
                     <span class="text-muted" title="<?= $this->translate->_('Deployed commit'); ?>">(<?php echo $this->escape($commitSha); ?>)</span>

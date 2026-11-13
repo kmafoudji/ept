@@ -827,7 +827,7 @@ $helpPageKey = "$controllerName/$actionName";
 			} ?>
 			<?= $footerText . $this->translate->_(" This project is supported by the U.S. President's Emergency Plan for AIDS Relief (PEPFAR) through the U.S. Centers for Disease Control and Prevention (CDC)."); ?>
 			<div class="pull-right hidden-xs">
-				<span>ver. <?php echo APP_VERSION; ?></span>
+				<span>ver. <?php echo DISTRIBUTION_VERSION; ?></span>
 				<?php $commitSha = $this->getCommitSha();
 				if ($commitSha) { ?>
 					<span class="text-muted" title="<?= $this->translate->_('Deployed commit'); ?>">(<?php echo $this->escape($commitSha); ?>)</span>
